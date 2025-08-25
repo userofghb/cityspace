@@ -1,0 +1,34 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="cityspace",  # 库的名字
+    version="0.1.0",
+    description="A toolkit for spatial data preprocessing, hot zone detection, and machine learning",
+    long_description=open("README.md", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",  # README格式
+    author="userofghb",
+    author_email="2746293150@qq.com",
+    url="https://github.com/userofghb/cityspace",
+    license="MIT",
+    packages=find_packages(include=["cityspace", "cityspace.*"]),  # 自动找到包
+    python_requires=">=3.9",
+    install_requires=[  # 依赖
+        "geopandas",
+        "shapely",
+        "networkx",
+        "numpy",
+        "pandas",
+        "xgboost",
+        "scikit-learn",
+        "matplotlib",
+    ],
+    classifiers=[  # PyPI 分类
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Intended Audience :: Science/Research",
+        "Topic :: Scientific/Engineering :: GIS",
+    ],
+    include_package_data=False, 
+    zip_safe=False,
+)
