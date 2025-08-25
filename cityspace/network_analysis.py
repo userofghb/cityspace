@@ -3,8 +3,10 @@
 import geopandas as gpd
 from cityseer.tools import io, networks, layers
 from spatialflow.preprocess import clean_field_names，my_nx_decompose
+import pandas as pd
+import logging
 
-def process_network_analysis(
+def process_poi_network_analysis(
     streets_path: str,
     poi_path: str,
     poi_label: str,
@@ -90,3 +92,82 @@ def process_network_analysis(
     nodes_gdf.to_file(output_path, driver='ESRI Shapefile')
 
     return nodes_gdf, edges_gdf, network_structure
+def process_streetpic_network_analysis(
+    road_path: str,
+    target_path: str,
+    output_path: str,
+    output_layer: str,
+    buffer_radii = None  # 单位：米
+    type_field: str
+    value_field: str
+):"""
+    使用以完备的道路点和街景进行统计运算。
+
+    参数:
+        streets_path: 街道 shapefile 路径
+        poi_path: POI shapefile 路径
+        poi_label: POI数据的类型标签
+        output_path: 输出节点 shapefile 路径
+        epsg: 坐标参考系
+        decompose_granularity: 网络分解粒度
+        distance_thresholds: 中心性和可达性计算距离列表
+        count_centrality:是否计算中心性
+        count_mixed_uses:是否计算复杂程度
+        count_accessibilities:是否计算可达性
+    返回:
+        nodes_gdf: 节点 GeoDataFrame
+        edges_gdf: 边 GeoDataFrame
+        network_structure: 网络结构
+    """
+    # ---------- 日志 ----------
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    
+    # ---------- 读数据 ----------
+    roads = gpd.read_file(road_path).to_crs(epsg=32650)  # 转换为米坐标系（UTM）
+    targets = gpd.read_file(target_path).to_crs(epsg=32650)
+    
+    # 确保 num 列是整数
+    targets[value_field] = pd.to_numeric(targets[value_field], errors="coerce").fillna(0).astype(int)
+    
+    # 确保几何有效（不改成 buffer(0)，保持点）
+    targets = targets[targets.is_valid].copy()
+    
+    # 提取所有类别（保持列完整）
+    all_types = targets[type_field].dropna().unique()
+    
+    # ---------- 批量处理 ----------
+    for radius in buffer_radii:
+        logging.info(f"开始处理半径 {radius} m ...")
+    
+        # 复制 roads，生成 buffer
+        buffers = roads[["geometry"]].copy()
+        buffers["geometry"] = buffers.geometry.buffer(radius)
+        buffers["road_id"] = buffers.index
+    
+        # 空间连接（目标点 → buffer）
+        joined = gpd.sjoin(buffers, targets, predicate="intersects")
+    
+        logging.info(f"半径 {radius} m 匹配到 {len(joined)} 个点")
+    
+        # 如果没有匹配结果，跳过
+        if joined.empty:
+            continue
+    
+        # 按道路点和 type 聚合
+        agg_df = joined.groupby(["road_id", type_field])[value_field].sum().reset_index()
+    
+        # 生成透视表（行=road_id，列=type，值=统计和）
+        pivot_df = agg_df.pivot(index="road_id", columns=type_field, values=value_field).reindex(columns=all_types, fill_value=0)
+    
+        # 列名改成 sum_xxx_radius
+        pivot_df.columns = [f"sum_{t}_{radius}" for t in pivot_df.columns]
+        pivot_df = pivot_df.reset_index()
+    
+        # 合并结果到原始 roads
+        roads = roads.merge(pivot_df, left_index=True, right_on="road_id", how="left").drop(columns="road_id")
+    
+    # ---------- 保存 ----------
+    roads.to_file(output_path, output_layer, driver="GPKG")
+    logging.info("处理完成")
+    
+        
