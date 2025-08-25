@@ -3,7 +3,8 @@ from setuptools import setup, find_packages
 setup(
     name="cityspace",  # 库的名字
     version="0.1.0",
-    description="A toolkit for spatial data preprocessing, hot zone detection, and machine learning",
+    description="This is a code package for urban street space analysis. With this package, you can clean and simplify roads,
+    analyze streets with information such as POI and street views, and predict urban street spaces using classifiers.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",  # README格式
     author="userofghb",
