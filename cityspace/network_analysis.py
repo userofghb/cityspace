@@ -7,10 +7,14 @@ from spatialflow.preprocess import clean_field_names，my_nx_decompose
 def process_network_analysis(
     streets_path: str,
     poi_path: str,
+    poi_label: str,
     output_path: str,
     epsg: int = 32650,
     decompose_granularity: int,
-    distance_thresholds=None
+    distance_thresholds=None,
+    count_centrality=True,
+    count_mixed_uses=True,
+    count_accessibilities=True
 ):
     """
     从街道和POI数据生成节点、边、网络结构，并计算中心性、混合用途、可达性。
@@ -18,10 +22,14 @@ def process_network_analysis(
     参数:
         streets_path: 街道 shapefile 路径
         poi_path: POI shapefile 路径
+        poi_label: POI数据的类型标签
         output_path: 输出节点 shapefile 路径
         epsg: 坐标参考系
         decompose_granularity: 网络分解粒度
         distance_thresholds: 中心性和可达性计算距离列表
+        count_centrality:是否计算中心性
+        count_mixed_uses:是否计算复杂程度
+        count_accessibilities:是否计算可达性
     返回:
         nodes_gdf: 节点 GeoDataFrame
         edges_gdf: 边 GeoDataFrame
@@ -43,7 +51,7 @@ def process_network_analysis(
     data_gdf = data_gdf.reset_index(level=0, drop=True)
     data_gdf.index = data_gdf.index.astype(str)
 
-    unique_main_tags = data_gdf['main_tag'].drop_duplicates().tolist()
+    unique_main_tags = data_gdf[poi_label].drop_duplicates().tolist()
     print("Unique main tags:", unique_main_tags)
 
     # 网络分解
@@ -60,7 +68,7 @@ def process_network_analysis(
     # 计算混合用途
     nodes_gdf, data_gdf = layers.compute_mixed_uses(
         data_gdf,
-        landuse_column_label="main_tag",
+        landuse_column_label=poi_label,
         nodes_gdf=nodes_gdf,
         network_structure=network_structure,
         distances=distance_thresholds,
@@ -69,7 +77,7 @@ def process_network_analysis(
     # 可达性计算
     nodes_gdf, pubs_data_gdf = layers.compute_accessibilities(
         data_gdf,
-        landuse_column_label="main_tag",
+        landuse_column_label=poi_label,
         accessibility_keys=unique_main_tags,
         nodes_gdf=nodes_gdf,
         network_structure=network_structure,
