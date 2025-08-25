@@ -22,6 +22,7 @@ setup(
         "xgboost",
         "scikit-learn",
         "matplotlib",
+        "cityseer",
     ],
     classifiers=[  # PyPI 分类
         "Programming Language :: Python :: 3",
