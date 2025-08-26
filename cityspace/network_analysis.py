@@ -24,7 +24,7 @@ def process_poi_network_analysis(
         streets_path: 街道 shapefile 路径
         poi_path: POI shapefile 路径
         poi_label: POI数据的类型标签
-        epsg: 期望坐标参考系
+        myepsg: 期望坐标参考系
         decompose_granularity: 网络分解粒度
         distance_thresholds: 中心性和可达性计算距离列表
         count_centrality:是否计算中心性
@@ -40,13 +40,13 @@ def process_poi_network_analysis(
 
     # 读取街道数据
     df_streets: gpd.GeoDataFrame = gpd.read_file(streets_path)
-    df_streets = df_streets.to_crs(epsg=epsg)
+    df_streets = df_streets.to_crs(epsg=myepsg)
     df_streets = df_streets.explode(ignore_index=True)
     nx_momepy = io.nx_from_generic_geopandas(df_streets)
 
     # 读取POI数据
     data_gdf: gpd.GeoDataFrame = gpd.read_file(poi_path)
-    data_gdf = data_gdf.to_crs(epsg=epsg)
+    data_gdf = data_gdf.to_crs(epsg=myepsg)
     data_gdf = clean_field_names(data_gdf)
     data_gdf = data_gdf.reset_index(level=0, drop=True)
     data_gdf.index = data_gdf.index.astype(str)
@@ -56,7 +56,7 @@ def process_poi_network_analysis(
 
     # 网络分解
     clipped_momepy = my_nx_decompose(nx_momepy, decompose_granularity)
-    nodes_gdf, edges_gdf, network_structure = io.network_structure_from_nx(clipped_momepy, crs=epsg)
+    nodes_gdf, edges_gdf, network_structure = io.network_structure_from_nx(clipped_momepy, crs=myepsg)
 
     # 中心性计算
     if count_centrality:
@@ -94,15 +94,17 @@ def process_streetpic_network_analysis(
     road_path: str,
     target_path: str,
     buffer_radii = None  # 单位：米
+    myepsg: int = 32650
     type_field: str
     value_field: str
 ):"""
     使用以完备的道路点和街景进行统计运算。
 
     参数:
-        road_path: 道路点路径,
-        target_path: 街景路径,
+        road_path: 道路点shapefile路径,
+        target_path: 街景shapefile路径,
         buffer_radii：搜索范围
+        myepsg: 期望参考坐标系
         type_field: 类型列名
         value_field: 类型数目列名
     返回:
@@ -114,8 +116,8 @@ def process_streetpic_network_analysis(
     if buffer_radii is None:
         buffer_radii=[50,100,200]
     # ---------- 读数据 ----------
-    roads = gpd.read_file(road_path).to_crs(epsg=32650)  # 转换为米坐标系（UTM）
-    targets = gpd.read_file(target_path).to_crs(epsg=32650)
+    roads = gpd.read_file(road_path).to_crs(epsg=myepsg)  # 转换为米坐标系（UTM）
+    targets = gpd.read_file(target_path).to_crs(epsg=myepsg)
     
     # 确保 num 列是整数
     targets[value_field] = pd.to_numeric(targets[value_field], errors="coerce").fillna(0).astype(int)
