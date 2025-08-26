@@ -2,7 +2,7 @@
 
 import geopandas as gpd
 from cityseer.tools import io, networks, layers
-from spatialflow.tools import clean_field_names，my_nx_decompose
+import cityspace.tools as mytools
 import pandas as pd
 import logging
 
@@ -47,7 +47,7 @@ def process_poi_network_analysis(
     # 读取POI数据
     data_gdf: gpd.GeoDataFrame = gpd.read_file(poi_path)
     data_gdf = data_gdf.to_crs(epsg=myepsg)
-    data_gdf = clean_field_names(data_gdf)
+    data_gdf = mytools.clean_field_names(data_gdf)
     data_gdf = data_gdf.reset_index(level=0, drop=True)
     data_gdf.index = data_gdf.index.astype(str)
 
@@ -55,7 +55,7 @@ def process_poi_network_analysis(
     print("Unique main tags:", unique_main_tags)
 
     # 网络分解
-    clipped_momepy = my_nx_decompose(nx_momepy, decompose_granularity)
+    clipped_momepy = mytools.my_nx_decompose(nx_momepy, decompose_granularity)
     nodes_gdf, edges_gdf, network_structure = io.network_structure_from_nx(clipped_momepy, crs=myepsg)
 
     # 中心性计算
