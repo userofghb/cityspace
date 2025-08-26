@@ -2,7 +2,7 @@
 
 import geopandas as gpd
 from cityseer.tools import io, networks, layers
-from spatialflow.preprocess import clean_field_names，my_nx_decompose
+from spatialflow.tools import clean_field_names，my_nx_decompose
 import pandas as pd
 import logging
 
