@@ -10,7 +10,6 @@ def process_poi_network_analysis(
     streets_path: str,
     poi_path: str,
     poi_label: str,
-    output_path: str,
     epsg: int = 32650,
     decompose_granularity: int,
     distance_thresholds=None,
@@ -25,17 +24,16 @@ def process_poi_network_analysis(
         streets_path: 街道 shapefile 路径
         poi_path: POI shapefile 路径
         poi_label: POI数据的类型标签
-        output_path: 输出节点 shapefile 路径
-        epsg: 坐标参考系
+        epsg: 期望坐标参考系
         decompose_granularity: 网络分解粒度
         distance_thresholds: 中心性和可达性计算距离列表
         count_centrality:是否计算中心性
         count_mixed_uses:是否计算复杂程度
         count_accessibilities:是否计算可达性
     返回:
-        nodes_gdf: 节点 GeoDataFrame
-        edges_gdf: 边 GeoDataFrame
-        network_structure: 网络结构
+        nodes_gdf: 处理后节点 GeoDataFrame
+        edges_gdf: 道路边 GeoDataFrame
+        network_structure: 道路网络结构
     """
     if distance_thresholds is None:
         distance_thresholds = [25, 50, 100, 200]
@@ -61,42 +59,40 @@ def process_poi_network_analysis(
     nodes_gdf, edges_gdf, network_structure = io.network_structure_from_nx(clipped_momepy, crs=epsg)
 
     # 中心性计算
-    nodes_gdf = networks.node_centrality_shortest(
-        network_structure=network_structure,
-        nodes_gdf=nodes_gdf,
-        distances=distance_thresholds,
-    )
+    if count_centrality:
+        nodes_gdf = networks.node_centrality_shortest(
+            network_structure=network_structure,
+            nodes_gdf=nodes_gdf,
+            distances=distance_thresholds,
+        )
 
     # 计算混合用途
-    nodes_gdf, data_gdf = layers.compute_mixed_uses(
-        data_gdf,
-        landuse_column_label=poi_label,
-        nodes_gdf=nodes_gdf,
-        network_structure=network_structure,
-        distances=distance_thresholds,
-    )
+    if count_mixed_uses:
+        nodes_gdf, data_gdf = layers.compute_mixed_uses(
+            data_gdf,
+            landuse_column_label=poi_label,
+            nodes_gdf=nodes_gdf,
+            network_structure=network_structure,
+            distances=distance_thresholds,
+        )
 
     # 可达性计算
-    nodes_gdf, pubs_data_gdf = layers.compute_accessibilities(
-        data_gdf,
-        landuse_column_label=poi_label,
-        accessibility_keys=unique_main_tags,
-        nodes_gdf=nodes_gdf,
-        network_structure=network_structure,
-        distances=distance_thresholds,
-    )
+    if count_accessibilities:
+        nodes_gdf, pubs_data_gdf = layers.compute_accessibilities(
+            data_gdf,
+            landuse_column_label=poi_label,
+            accessibility_keys=unique_main_tags,
+            nodes_gdf=nodes_gdf,
+            network_structure=network_structure,
+            distances=distance_thresholds,
+        )
 
     nodes_gdf = clean_field_names(nodes_gdf)
-
-    # 保存结果
-    nodes_gdf.to_file(output_path, driver='ESRI Shapefile')
 
     return nodes_gdf, edges_gdf, network_structure
 def process_streetpic_network_analysis(
     road_path: str,
     target_path: str,
-    output_path: str,
-    output_layer: str,
     buffer_radii = None  # 单位：米
     type_field: str
     value_field: str
@@ -104,24 +100,19 @@ def process_streetpic_network_analysis(
     使用以完备的道路点和街景进行统计运算。
 
     参数:
-        streets_path: 街道 shapefile 路径
-        poi_path: POI shapefile 路径
-        poi_label: POI数据的类型标签
-        output_path: 输出节点 shapefile 路径
-        epsg: 坐标参考系
-        decompose_granularity: 网络分解粒度
-        distance_thresholds: 中心性和可达性计算距离列表
-        count_centrality:是否计算中心性
-        count_mixed_uses:是否计算复杂程度
-        count_accessibilities:是否计算可达性
+        road_path: 道路点路径,
+        target_path: 街景路径,
+        buffer_radii：搜索范围
+        type_field: 类型列名
+        value_field: 类型数目列名
     返回:
-        nodes_gdf: 节点 GeoDataFrame
-        edges_gdf: 边 GeoDataFrame
-        network_structure: 网络结构
+        roads: 处理后街道点
     """
     # ---------- 日志 ----------
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    
+
+    if buffer_radii is None:
+        buffer_radii=[50,100,200]
     # ---------- 读数据 ----------
     roads = gpd.read_file(road_path).to_crs(epsg=32650)  # 转换为米坐标系（UTM）
     targets = gpd.read_file(target_path).to_crs(epsg=32650)
@@ -129,10 +120,10 @@ def process_streetpic_network_analysis(
     # 确保 num 列是整数
     targets[value_field] = pd.to_numeric(targets[value_field], errors="coerce").fillna(0).astype(int)
     
-    # 确保几何有效（不改成 buffer(0)，保持点）
+    # 确保几何有效
     targets = targets[targets.is_valid].copy()
     
-    # 提取所有类别（保持列完整）
+    # 提取所有类别
     all_types = targets[type_field].dropna().unique()
     
     # ---------- 批量处理 ----------
@@ -167,7 +158,7 @@ def process_streetpic_network_analysis(
         roads = roads.merge(pivot_df, left_index=True, right_on="road_id", how="left").drop(columns="road_id")
     
     # ---------- 保存 ----------
-    roads.to_file(output_path, output_layer, driver="GPKG")
     logging.info("处理完成")
+    return roads
     
         
