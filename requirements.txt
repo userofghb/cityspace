@@ -1,0 +1,14 @@
+pandas
+geopandas
+numpy
+shapely
+networkx
+cityseer
+osmnx
+pypinyin
+Unidecode
+tqdm
+chardet
+scipy
+scikit-learn
+openpyxl
